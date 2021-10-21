@@ -68,3 +68,50 @@ EOF
 
     # point to the right endpoint
     aws --endpoint-url=http://localstack.default.svc.cluster.local:4566 s3 ls
+
+## example uploading html
+
+```console
+# create the bucket
+cat <<EOF | kubectl apply -f -
+apiVersion: s3.aws.crossplane.io/v1beta1
+kind: Bucket
+metadata:
+  name: website-bucket
+spec:
+  forProvider:
+    acl: public-read
+    locationConstraint: us-east-1
+    corsConfiguration:
+      corsRules:
+        - allowedMethods:
+            - "GET"
+          allowedOrigins:
+            - "*"
+          allowedHeaders:
+            - "*"
+          exposeHeaders:
+            - "x-amz-server-side-encryption"
+  providerConfigRef:
+    name: example
+EOF
+```
+
+    # on aws-cli-runtime:
+    # create html and upload it to the bucket
+    echo "<html>hello from crossplane</html>" > index.html
+    aws --endpoint-url=http://localstack.default.svc.cluster.local:4566 s3 cp index.html s3://website-bucket --acl public-read
+    upload: ./index.html to s3://website-bucket/index.html
+
+    # verify the bucket has the html file
+    aws --endpoint-url=http://localstack.default.svc.cluster.local:4566 s3api head-object --bucket website-bucket --key index.html
+    {
+    "LastModified": "2021-10-21T11:52:01+00:00",
+    "ContentLength": 35,
+    "ETag": "\"b785e6dedf26b0acefc463b9f12a74df\"",
+    "ContentType": "text/html",
+    "Metadata": {}
+    }
+
+    # curl the html
+    curl localstack.default.svc.cluster.local:4566/website-bucket/index.html
